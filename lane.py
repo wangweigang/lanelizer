@@ -13,7 +13,8 @@ import warnings
 #    
 def lineFind (imageOriginal, image):
 
-    lines = []
+    lines    = []
+    useSieve = True
     # no blurring, too few lines
     # image = cv2.GaussianBlur(image, (3,3), 0)
     
@@ -41,9 +42,10 @@ def lineFind (imageOriginal, image):
         lineFinal = lineByIntensity(imageOriginal)
     else:           # Hough line
 
-        if True:
+        if useSieve:      #### apply sieve or not
             # make white then black strips to mask edge image
             # 111111111111111, 0101010101, 110110110110110, ...
+
             numOfRow, numOfCol = image.shape
             mask               = np.zeros_like(image)
             for i in range(0,numOfRow,2):
@@ -130,37 +132,142 @@ def lineFind (imageOriginal, image):
         else:
 # segment the image to 2,4,6,8, ...
             numOfRow,numOfCol = image.shape
+            
+            numOfHalfRow = np.int(numOfRow/1.7)
             numOfHalfCol = np.int(numOfCol/2)
 
-            imageSub     = np.hsplit(image, [numOfHalfCol,numOfCol])
+            imagex     = np.hsplit(image, [numOfHalfCol,numOfCol])
+            
+            
             if False:
+              # make 2 segments00 01;10 11
                 # for 11111111111111111 road04.png 
     #            lines0 = cv2.HoughLinesP(image=imageSub[0], rho=0.5, 
     #                        theta=np.pi/100, threshold=66,   
     #                        minLineLength=99, maxLineGap=11)
                 # for 11111111111111111 road14.png  
-                lines0 = cv2.HoughLinesP(image=imageSub[0], rho=0.5, 
+                lines00 = cv2.HoughLinesP(image=imagex[0], rho=0.5, 
                             theta=np.pi/111, threshold=11,   
                             minLineLength=66, maxLineGap=70)
                 # for 11111111111111111 road14.png  
-                lines1 = cv2.HoughLinesP(image=imageSub[1], rho=1, 
+                lines01 = cv2.HoughLinesP(image=imagex[1], rho=1, 
                             theta=np.pi/100, threshold=11,   
                             minLineLength=44, maxLineGap=44)
+                # shift x -> x + numOfHalfCol
+                lines01[:,:,0] = lines01[:,:,0] + numOfHalfCol
+                lines01[:,:,2] = lines01[:,:,2] + numOfHalfCol
+                lineFinal = np.concatenate((lines00,lines01), axis=0)
             else:
               # make 4 segments00 01;10 11
+              #  ________________________
+              #  | 1.lines00  3.lines01 |
+              #  |                      |
+              #  | 2.lines10  4.lines11 |
+              #  ------------------------
                 # for 010101010101 road14.png  
-                lines00 = cv2.HoughLinesP(image=imageSub[0], rho=1, 
-                            theta=np.pi/111,  threshold=11,   
-                            minLineLength=55, maxLineGap=66)
+                image0010 = np.vsplit(imagex[0], [numOfHalfRow,numOfRow])
+                image0111 = np.vsplit(imagex[1], [numOfHalfRow,numOfRow])
+                
+                #### parameters for Hough
+                if useSieve:   # with sieve
+                    #             00   10   01   11
+                    rho       = [0.8, 1.0, 0.7, 0.8]
+                    thetaf    = [111, 111, 111, 111]
+                    threshold = [44,   33,  33,  22]
+                    minLength = [55,   44,  55,  44]
+                    maxGap    = [11,   55,  22,  55]
+                else:   # no sieve
+                    #             00   10   01   11
+                    rho       = [0.7, 1.0, 0.7, 1.0]
+                    thetaf    = [111, 111, 111, 111]
+                    threshold = [55,   44,  66,  77]
+                    minLength = [66,   66,  55,  66]
+                    maxGap    = [33,   55,  22,  55]
+
+                lines00 = cv2.HoughLinesP(image=image0010[0], rho=rho[0], 
+                            theta=np.pi/thetaf[0],  threshold=threshold[0],   
+                            minLineLength=minLength[0], maxLineGap=maxGap[0])
                 # for 010101010101 road14.png  
-                lines01 = cv2.HoughLinesP(image=imageSub[1], rho=1, 
-                            theta=np.pi/100, threshold=11,   
-                            minLineLength=44, maxLineGap=55)
+                lines10 = cv2.HoughLinesP(image=image0010[1], rho=rho[1], 
+                            theta=np.pi/thetaf[1], threshold=threshold[1],   
+                            minLineLength=minLength[1], maxLineGap=maxGap[1])
+                
+                lines01 = cv2.HoughLinesP(image=image0111[0], rho=rho[2], 
+                            theta=np.pi/thetaf[2],  threshold=threshold[2],   
+                            minLineLength=minLength[2], maxLineGap=maxGap[2])
+                # for 010101010101 road14.png  
+                lines11 = cv2.HoughLinesP(image=image0111[1], rho=rho[3], 
+                            theta=np.pi/thetaf[3], threshold=threshold[3],   
+                            minLineLength=minLength[3], maxLineGap=maxGap[3])
+                
+                if lines01 is not None:
+                    lines01[:,:,0] = lines01[:,:,0] + numOfHalfCol
+                    lines01[:,:,2] = lines01[:,:,2] + numOfHalfCol
+                if lines10 is not None:
+                    lines10[:,:,1] = lines10[:,:,1] + numOfHalfRow
+                    lines10[:,:,3] = lines10[:,:,3] + numOfHalfRow
+                if lines11 is not None:
+                    lines11[:,:,0] = lines11[:,:,0] + numOfHalfCol
+                    lines11[:,:,2] = lines11[:,:,2] + numOfHalfCol
+                    lines11[:,:,1] = lines11[:,:,1] + numOfHalfRow
+                    lines11[:,:,3] = lines11[:,:,3] + numOfHalfRow
+                
+#                if (lines00 is None):
+#                    lines00 = np.array([]).reshape(0,1,4)
+#                if (lines01 is None):
+#                    lines00 = np.array([]).reshape(0,1,4)
+#                if (lines10 is None):
+#                    lines10 = np.array([]).reshape(0,1,4)
+#                if (lines11 is None):
+#                    lines11 = np.array([]).reshape(0,1,4)
+                
+                try:
+                    x0 = np.concatenate((lines00, lines10), axis=0)
+                except Exception as e:
+#                    exc_type, exc_obj, exc_tb = sys.exc_info()
+#                    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+#                    print(exc_type, fname, exc_tb.tb_lineno,str(e))
+                    
+                    if (lines00 is None) and (lines10 is None):
+                        x0 = None
+                    elif lines00 is not None:
+                        x0 = lines00
+                    else:
+                        x0 = lines10
+                    pass
+                
+                try:
+                    x1 = np.concatenate((lines01, lines11), axis=0)
+                except Exception as e:
+#                    exc_type, exc_obj, exc_tb = sys.exc_info()
+#                    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+#                    print(exc_type, fname, exc_tb.tb_lineno,str(e))
+                    
+                    if (lines01 is None) and (lines11 is None):
+                        x1 = None
+                    elif lines01 is not None:
+                        x1 = lines01
+                    else:
+                        x1 = lines11
+                    pass
+                
+                try:
+                    lineFinal = np.concatenate((x0,x1), axis=0)
+                except Exception as e:
+#                    exc_type, exc_obj, exc_tb = sys.exc_info()
+#                    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+#                    print(exc_type, fname, exc_tb.tb_lineno,str(e))
+
+                    if (x0 is None) and (x0 is None):
+                        lineFinal = None
+                    elif x0 is not None:
+                        lineFinal = x0
+                    else:
+                        lineFinal = x1
+                    
+                    pass
+
               
-            # shift x -> x + numOfHalfCol
-            lines01[:,:,0] = lines01[:,:,0] + numOfHalfCol
-            lines01[:,:,2] = lines01[:,:,2] + numOfHalfCol
-            lineFinal = np.concatenate((lines00,lines01), axis=0)
 #            print('Line found: ', len(lines0),lines0.shape, lines0.size)
 #            print('Line found: ', len(lines1),lines1.shape, lines1.size)
 
@@ -217,14 +324,16 @@ def laneFind(lines, roiVertice):
                 
                 if coords[2]==coords[0]:
                     slope = 1.0e11
-                else:
+                else:     #### slope for grouping
                     slope = (coords[3]-coords[1]) / (coords[2]-coords[0])
-
                 if   (np.abs(slope) < 0.5) and (0.5*(coords[1]+coords[3]) < 0.5*(vertices[0][1]+vertices[1][1])+77):
-                    # ignore horizontal lines at the top
+                    # ignore approx.-horizontal lines at the top
                     continue
-                elif (np.abs(slope) < 0.5) and (0.5*(coords[1]+coords[3]) > 0.5*(vertices[2][1]+vertices[2][1])-77):
-                    # ignore horizontal lines at the bottom
+                elif (np.abs(slope) < 0.1) and (0.5*(coords[1]+coords[3]) > 0.5*(vertices[2][1]+vertices[2][1])-77):
+                    # ignore approx.-horizontal lines at the bottom
+                    continue
+                elif (np.min((coords[1],coords[3])) > 0.5*(vertices[2][1]+vertices[2][1])-44):
+                    # ignore all lines at the bottom
                     continue
                 elif (np.abs(coords[2]-coords[0]) < 33) and (0.5*(coords[0]+coords[2]) < vertices[0][0]+44):
                     # ignore vertical lines at the left
@@ -234,8 +343,8 @@ def laneFind(lines, roiVertice):
                     continue
 #                elif ((slope <  0.1) and (0.5*(coords[1]+coords[3]) < 0.3*(vertices[1][1]+vertices[2][1])) and (0.5*(coords[0]+coords[2]) < 0.4*(vertices[0][0]+vertices[1][0]))) or \
 #                     ((slope > -0.3) and (0.5*(coords[1]+coords[3]) < 0.3*(vertices[0][1]+vertices[3][1])) and (0.5*(coords[0]+coords[2]) > 0.6*(vertices[0][0]+vertices[1][0]))):
-                elif ((slope <  0.1) and (np.min((coords[1],coords[3])) < 0.2*0.5*(vertices[1][1]+vertices[2][1])) and (np.min((coords[0],coords[2])) < 0.1*0.5*(vertices[0][0]+vertices[1][0]))) or \
-                     ((slope > -0.1) and (np.min((coords[1],coords[3])) < 0.2*0.5*(vertices[0][1]+vertices[3][1])) and (np.max((coords[0],coords[2])) > 1.9*0.5*(vertices[0][0]+vertices[1][0]))):
+                elif ((slope <  0.4) and (np.min((coords[1],coords[3])) < 0.2*0.5*(vertices[1][1]+vertices[2][1])) and (np.min((coords[0],coords[2])) < 0.2*(vertices[0][0]+vertices[1][0]))) or \
+                     ((slope > -0.4) and (np.min((coords[1],coords[3])) < 0.2*0.5*(vertices[0][1]+vertices[3][1])) and (np.max((coords[0],coords[2])) > 0.8*(vertices[0][0]+vertices[1][0]))):
                     # ignore lines \ starting at upper-left  part
                     # ignore lines / starting at upper-right part
                     continue
@@ -264,6 +373,7 @@ def laneFind(lines, roiVertice):
 
 
 def lineGroup(lanes):
+    """ group a few approximately-paralell lines together to form a one line """
     # 
     # do line grouping/fitting
     #
@@ -295,13 +405,13 @@ def lineGroup(lanes):
                 l2       = laneTemp[j]
                 # print ("point line dist=", i, j, l1,l2, numOfRest)
                 
-                paralell = isParalell(l1,l2)
-                # if the 2 lines are approximately paralell
-                if paralell:
-                    # then check the gap fro not too big
-                    gap = gapBetweenLines(l1,l2)
+                parallel = isParallel(l1,l2)
+                # if the 2 lines are approximately parallel
+                if parallel:
+                    # then check the gap for not too big
+                    gap = gapBetweenLines(l1,l2)   #### for line terminals
                     # print("gap=", gap)
-                    if gap < 300:
+                    if gap < 32:   #### gap between line terminals
                         # then the distance
  
                         dist =        0.25*distPoint2Line([l1[0],l1[1]], l2)
@@ -311,11 +421,11 @@ def lineGroup(lanes):
                         
                         # print ("point line dist=", i, j, l1,l2, numOfRest, "%4d" % dist)
                         # pause()
-                          # if isParalell(l1,l2) and (distBetweenParaLines(l1, l2)<11):
+                          # if isparallel(l1,l2) and (distBetweenParaLines(l1, l2)<11):
                             # check if l2 can be extended
                             
                         # if the 2 lines get small distance (close to each other)
-                        if dist < 16.0:
+                        if dist < 48.0:
                             lineCluster = np.append(lineCluster,[l2],axis=0)
         
                             # delete j row in l2
@@ -389,7 +499,7 @@ def lineGroup(lanes):
 
 
 def distPoint2Line(point, line):
-    
+    """ get the distance between a point to a line """    
     dist = 1e4
     # casting for python list
     (point[0],point[1]) = map(np.float32, (point[0],point[1]))
@@ -412,10 +522,12 @@ def distPoint2Line(point, line):
 
 
 def distBetweenParaLines(l1, l2):
-    # only enter if l1 and l2 paralell
+    """ get the distance between 2 approximately-paralell lines """
+
+    # only enter if l1 and l2 parallel
     
     # they are different lines
-    if False:   # (not isParalell(l1,l2)):
+    if False:   # (not isparallel(l1,l2)):
         distance = 0
     else:
         a1 =  l1[3]-l1[1]
@@ -441,35 +553,56 @@ def distBetweenParaLines(l1, l2):
 
 
 def gapBetweenLines(l1,l2):
+    """ get the gap between the terminals of 2 lines"""
     #np.seterr(over='ignore')
     
-    x12    = np.float(l1[2])
-    x10    = np.float(l1[0])
-    x22    = np.float(l2[2])
-    x20    = np.float(l2[0])
-    
-    dx1a   = np.max((x12,x10))
-    dx2a   = np.min((x22,x20))
-    dx1b   = np.min((x12,x10))
-    dx2b   = np.max((x22,x20))
-    dxmin  = np.min((np.abs(dx1a-dx2a), np.abs(dx1b-dx2b)))
+    x10       = np.float(l1[0])
+    x12       = np.float(l1[2])
+    x20       = np.float(l2[0])
+    x22       = np.float(l2[2])
+    x1min     = np.min((x12,x10))
+    x1max     = np.max((x12,x10))
+    x2min     = np.min((x22,x20))
+    x2max     = np.max((x22,x20))
 
-    y13    = np.float(l1[3])
-    y11    = np.float(l1[1])
-    y23    = np.float(l2[3])
-    y21    = np.float(l2[1])
+    isBetween =              ((x2min <= x10) and (x10 <= x2max)) 
+    if isBetween: return 0         
+    isBetween = isBetween or ((x2min <= x12) and (x12 <= x2max))
+    if isBetween: return 0         
+    isBetween = isBetween or ((x2min <= x20) and (x20 <= x1max))             
+    if isBetween: return 0         
+    isBetween = isBetween or ((x2min <= x22) and (x22 <= x1max))             
+    if isBetween: return 0         
+    y11       = np.float(l1[1])
+    y13       = np.float(l1[3])
+    y21       = np.float(l2[1])
+    y23       = np.float(l2[3])
+    y1min     = np.min((y13,y11))
+    y1max     = np.max((y13,y11))
+    y2min     = np.min((y23,y21))
+    y2max     = np.max((y23,y21))
     
-    dy1a   = np.max((y13,y11))
-    dy2a   = np.min((y23,y21))
-    dy1b   = np.min((y13,y11))
-    dy2b   = np.max((y23,y21))
-    dymin  = np.min((np.abs(dy1a-dy2a), np.abs(dy1b-dy2b)))
+    if isBetween: return 0         
+    isBetween = isBetween or ((y2min <= y11) and (y11 <= y2max))             
+    if isBetween: return 0         
+    isBetween = isBetween or ((y2min <= y13) and (y13 <= y2max))
+    if isBetween: return 0         
+    isBetween = isBetween or ((y1min <= y21) and (y21 <= y1max))             
+    if isBetween: return 0         
+    isBetween = isBetween or ((y1min <= y23) and (y23 <= y1max))             
+    if isBetween: return 0         
     
-    return np.sqrt(dxmin*dxmin+dymin*dymin)
+    dxmin     = np.min((np.abs(x1max-x2min), np.abs(x1min-x2max)))
+    dymin     = np.min((np.abs(y1max-y2min), np.abs(y1min-y2max)))
+    
+    dist      = np.sqrt(dxmin*dxmin+dymin*dymin)
+    
+    return dist
     
 
 
-def isParalell(l1,l2):
+def isParallel(l1,l2):
+    """ check if two lines are approximately paralell """
     #np.seterr(over='ignore')
     
     slope1 = np.float(0)
@@ -487,10 +620,10 @@ def isParalell(l1,l2):
     y21    = np.float(l2[1])
     
     #print ("dx=", dx1, dx2)
-    # vertically paralell
-    paralell = (np.abs(dx1) < 1.0) and (np.abs(dx2) < 1.0)
-    # print ("isParalell(Vert)=",paralell, l1, l2)
-    if (not paralell):
+    # vertically parallel
+    parallel = (np.abs(dx1) < 1.0) and (np.abs(dx2) < 1.0)
+    # print ("isparallel(Vert)=",parallel, l1, l2)
+    if (not parallel):
         
         if np.abs(dx1)<2: 
             slope1 = np.sign(dx1)*1.0e3
@@ -502,9 +635,9 @@ def isParalell(l1,l2):
         else:
             slope2 = np.divide((y23-y21), dx2)
             
-        paralell = (np.abs(slope2-slope1) < 0.2)
+        parallel = (np.abs(slope2-slope1) < 0.1)   #### criterion for parallelization
 
-    return paralell
+    return parallel
 
 
 def isLonger(l1,l2):
@@ -523,8 +656,18 @@ def isLonger(l1,l2):
 
 
 def plot (imageOriginal, lineFit, lineGood, roiVertice, verticeI):  
-  
+    """ draw lines of two groups on the image """  
     cv2.polylines(imageOriginal, roiVertice, True, [0,255,0], 1)
+    #cv2.polylines(imageOriginal, verticeI,   True, [0,0,255], 1)
+
+    hOfRoi = 310
+    wOfRoi = 835
+    hHalf  = np.uint(hOfRoi/1.7)
+    wHalf  = np.uint(wOfRoi/2)
+    # cv2.line(imageOriginal, (wHalf,0), (wHalf, hOfRoi), [0,255,0], 1) # CV_AA
+    # cv2.line(imageOriginal, (0+16,hHalf), (wOfRoi-16,hHalf),  [0,255,0], 1) # CV_AA
+    cv2.line(imageOriginal, (wHalf,0+174), (wHalf, hOfRoi-120), [0,0,255], 1) # CV_AA
+    cv2.line(imageOriginal, (0+407,hHalf), (wOfRoi-407,hHalf),  [0,0,255], 1) # CV_AA
 
     # print(VerticeI)
     # stop()
@@ -532,17 +675,17 @@ def plot (imageOriginal, lineFit, lineGood, roiVertice, verticeI):
     # draw all the lines found
     try:
         for coords in lineGood:
-            #print('line coords: ', coords[0], coords[1]), (coords[2], coords[3])
-            try:
-                #coords = transform(coords, 0.5)
-                
-                cv2.line(imageOriginal, (coords[0], coords[1]), (coords[2], coords[3]), [255,105,180], 3)
-                # transpose
-                # cv2.line(imageOriginal, (coords[1], coords[0]), (coords[3], coords[2]), [255,0,0], 2)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                print(exc_type, fname, exc_tb.tb_lineno, str(e))
+            if False:
+                try:
+                    #coords = transform(coords, 0.5)
+                    # plot all lines
+                    cv2.line(imageOriginal, (coords[0], coords[1]), (coords[2], coords[3]), [255,105,180], 3)
+                    # transpose
+                    # cv2.line(imageOriginal, (coords[1], coords[0]), (coords[3], coords[2]), [255,0,0], 2)
+                except Exception as e:
+                    exc_type, exc_obj, exc_tb = sys.exc_info()
+                    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                    print(exc_type, fname, exc_tb.tb_lineno, str(e))
  
 #        rrr =        [lineBetter.reshape(4,2)]
 #        cv2.polylines(imageOriginal, rrr, False, [0,0,255], 1)
@@ -560,7 +703,7 @@ def plot (imageOriginal, lineFit, lineGood, roiVertice, verticeI):
                 y = y.astype(int)
                 arrayTmp  = np.array([x,y]).transpose()
                 # arrayTmp  = np.uint16(arrayTmp)
-                cv2.polylines(imageOriginal, [arrayTmp], False, [255,0,0], 2)
+                cv2.polylines(imageOriginal, [arrayTmp], False, [255,0,0], 2, 4)
 
                 # cv2.line(imageOriginal, (coords[0], coords[1]), (coords[2], coords[3]), [255,0,0], 2)
                 # transpose

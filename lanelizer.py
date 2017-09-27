@@ -107,7 +107,7 @@ def frameProc (fileName, training_data, roiVertice, verticeI, indexStart, imageC
                 # find lines
                 lines = lane.lineFind (imageOriginal, image)
                 timeLineFind = time.time() 
-                cv2.polylines(imageOriginal, verticeI, True, [0,0,255], 1)
+                # cv2.polylines(imageOriginal, verticeI, True, [0,0,255], 1)
                 
                 try:
                     if len(lines)>=1:
@@ -148,7 +148,7 @@ def frameProc (fileName, training_data, roiVertice, verticeI, indexStart, imageC
                       " Line finding: %2d ms"  % (1000*(timeLineFind-timeEdgeProcess)),
                       " Lane finding: %2d ms"  % (1000*(timeLaneFind-timeLineFind)),
 #                          "Lane plotting %3d ms" % (1000*(timeLanePlot-timeLaneFind)),
-                      " Total fps: %3d "       % (1 / (timeLanePlot-timeStart)) 
+                      " Total fps: %2d"       % (1 / (timeLanePlot-timeStart)) 
                       )
                    
                     # print('fps: %2d frames' % (1 / (current_time-timeStart)), "good better: ", len(laneGood), len(laneBetter))
