@@ -108,7 +108,7 @@ def frameProc (fileName, training_data, roiVertice, verticeI, indexStart, imageC
                 lines = lane.lineFind (imageOriginal, image)
                 timeLineFind = time.time() 
                 # cv2.polylines(imageOriginal, verticeI, True, [0,0,255], 1)
-                
+                # print("lines:", len(lines), lines.shape, lines.shape)
                 try:
                     if len(lines)>=1:
                         laneGood = lane.laneFind(lines, roiVertice)
@@ -119,7 +119,11 @@ def frameProc (fileName, training_data, roiVertice, verticeI, indexStart, imageC
                         # grouping lines
                         laneFit = lane.lineGroup(laneGood)
                         
-                        lane.plot (imageOriginal, laneFit, laneGood, roiVertice, verticeI)
+                        #print("lines:", len(laneFit), laneFit.shape, laneFit.shape)
+
+                        lineVoted,scores = lane.lineVote(laneFit)
+                        #print (score)
+                        lane.plot (imageOriginal, lineVoted, laneGood, roiVertice, verticeI)
 #                        lane.plot (imageOriginal1, lines, roiVertice, verticeI)
                 except Exception as e:
                     # print("line=", lines) 

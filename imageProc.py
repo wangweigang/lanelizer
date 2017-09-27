@@ -230,8 +230,8 @@ def extractColor(image):
     
     # image[...,0] = (1-np.sin(0.5*3.14159*image[...,1]/255))*255  
     # not get yellow strong sun und shadow, tunnel
-    image[...,1] = np.sin(0.5*3.14159*image[...,1]/255)*255  
-    image[...,2] = np.sin(0.5*3.14159*image[...,2]/255)*255
+    # image[...,1] = np.sin(0.5*3.14159*image[...,1]/255)*255  
+    # image[...,2] = np.sin(0.5*3.14159*image[...,2]/255)*255
 #    
     image = np.uint8(image)
     

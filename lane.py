@@ -19,7 +19,8 @@ def lineFind (imageOriginal, image):
     # image = cv2.GaussianBlur(image, (3,3), 0)
     
     #
-    # http://docs.opencv.org/3.0-beta/modules/imgproc/doc/feature_detection.html?highlight=cv2.houghlinesp#cv2.HoughLinesP    #                               rho   theta   thresh  min length, max gap:        
+    # http://docs.opencv.org/3.0-beta/modules/imgproc/doc/feature_detection.html?highlight=cv2.houghlinesp#cv2.HoughLinesP    
+    #                               rho   theta   thresh  min length, max gap:        
 
     # cv2.HoughLinesP(image, rho, theta, threshold[, lines[, minLineLength[, maxLineGap]]]) → lines
     # image – 8-bit, single-channel binary source image. The image may be modified by the function.
@@ -171,18 +172,18 @@ def lineFind (imageOriginal, image):
                 #### parameters for Hough
                 if useSieve:   # with sieve
                     #             00   10   01   11
-                    rho       = [0.8, 1.0, 0.7, 0.8]
+                    rho       = [0.8, 1.0, 0.7, 0.9]
                     thetaf    = [111, 111, 111, 111]
-                    threshold = [44,   33,  33,  22]
-                    minLength = [55,   44,  55,  44]
-                    maxGap    = [11,   55,  22,  55]
+                    threshold = [44,   22,  33,  22]
+                    minLength = [55,   44,  55,  36]
+                    maxGap    = [11,   66,  22,  66]
                 else:   # no sieve
                     #             00   10   01   11
                     rho       = [0.7, 1.0, 0.7, 1.0]
                     thetaf    = [111, 111, 111, 111]
                     threshold = [55,   44,  66,  77]
                     minLength = [66,   66,  55,  66]
-                    maxGap    = [33,   55,  22,  55]
+                    maxGap    = [33,   66,  22,  66]
 
                 lines00 = cv2.HoughLinesP(image=image0010[0], rho=rho[0], 
                             theta=np.pi/thetaf[0],  threshold=threshold[0],   
@@ -211,15 +212,6 @@ def lineFind (imageOriginal, image):
                     lines11[:,:,2] = lines11[:,:,2] + numOfHalfCol
                     lines11[:,:,1] = lines11[:,:,1] + numOfHalfRow
                     lines11[:,:,3] = lines11[:,:,3] + numOfHalfRow
-                
-#                if (lines00 is None):
-#                    lines00 = np.array([]).reshape(0,1,4)
-#                if (lines01 is None):
-#                    lines00 = np.array([]).reshape(0,1,4)
-#                if (lines10 is None):
-#                    lines10 = np.array([]).reshape(0,1,4)
-#                if (lines11 is None):
-#                    lines11 = np.array([]).reshape(0,1,4)
                 
                 try:
                     x0 = np.concatenate((lines00, lines10), axis=0)
@@ -278,7 +270,7 @@ def lineFind (imageOriginal, image):
     # too many lines
     # lines = cv2.HoughLinesP(image, 1, np.pi/180, 180, np.array([]), 10, 22)
     # lines = cv2.HoughLinesP(image, 1, np.pi/18, 10, 22, 9)
-#    print('Line found:                  ', len(lineFinal),lineFinal.shape, lineFinal.size)
+    # print('Line found:                  ', len(lineFinal),lineFinal.shape, lineFinal.size)
     
     return lineFinal
 
@@ -304,17 +296,17 @@ def laneFind(lines, roiVertice):
     
     # filtered out by line positions
     
-    for coords in lines:
-        coords = coords[0]
+    for xy in lines:
+        xy = xy[0]
         try:
-            # coords[0] = # x1
-            # coords[1] = # y1
-            # coords[2] = # x2
-            # coords[3] = # y2
+            # xy[0] = # x1
+            # xy[1] = # y1
+            # xy[2] = # x2
+            # xy[3] = # y2
             
             if False:    # take all the lines found
-                lineGood.append(coords)
-                # print ('                        coords=',coords)
+                lineGood.append(xy)
+                # print ('                        xy=',xy)
             else:
                 #    vertices (ROI)
                 #    (0)-------(1)
@@ -322,43 +314,43 @@ def laneFind(lines, roiVertice):
                 #     |         |
                 #    (3)-------(2)
                 
-                if coords[2]==coords[0]:
+                if xy[2]==xy[0]:
                     slope = 1.0e11
                 else:     #### slope for grouping
-                    slope = (coords[3]-coords[1]) / (coords[2]-coords[0])
-                if   (np.abs(slope) < 0.5) and (0.5*(coords[1]+coords[3]) < 0.5*(vertices[0][1]+vertices[1][1])+77):
+                    slope = (xy[3]-xy[1]) / (xy[2]-xy[0])
+                if   (np.abs(slope) < 0.5)  and (0.5*(xy[1]+xy[3]) < 0.5*(vertices[0][1]+vertices[1][1])+77):
                     # ignore approx.-horizontal lines at the top
                     continue
-                elif (np.abs(slope) < 0.1) and (0.5*(coords[1]+coords[3]) > 0.5*(vertices[2][1]+vertices[2][1])-77):
+                elif (np.abs(slope) < 0.04) and (0.5*(xy[1]+xy[3]) > 0.5*(vertices[2][1]+vertices[3][1])-77):
                     # ignore approx.-horizontal lines at the bottom
                     continue
-                elif (np.min((coords[1],coords[3])) > 0.5*(vertices[2][1]+vertices[2][1])-44):
+                elif (np.min((xy[1],xy[3])) > 0.5*(vertices[2][1]+vertices[2][1])-44):
                     # ignore all lines at the bottom
                     continue
-                elif (np.abs(coords[2]-coords[0]) < 33) and (0.5*(coords[0]+coords[2]) < vertices[0][0]+44):
+                elif (np.abs(xy[2]-xy[0]) < 33) and (0.5*(xy[0]+xy[2]) < vertices[0][0]+44):
                     # ignore vertical lines at the left
                     continue
-                elif (np.abs(coords[2]-coords[0]) < 33) and (0.5*(coords[0]+coords[2]) > vertices[3][0]-44):
+                elif (np.abs(xy[2]-xy[0]) < 33) and (0.5*(xy[0]+xy[2]) > vertices[3][0]-44):
                     # ignore vertical lines at the right
                     continue
-#                elif ((slope <  0.1) and (0.5*(coords[1]+coords[3]) < 0.3*(vertices[1][1]+vertices[2][1])) and (0.5*(coords[0]+coords[2]) < 0.4*(vertices[0][0]+vertices[1][0]))) or \
-#                     ((slope > -0.3) and (0.5*(coords[1]+coords[3]) < 0.3*(vertices[0][1]+vertices[3][1])) and (0.5*(coords[0]+coords[2]) > 0.6*(vertices[0][0]+vertices[1][0]))):
-                elif ((slope <  0.4) and (np.min((coords[1],coords[3])) < 0.2*0.5*(vertices[1][1]+vertices[2][1])) and (np.min((coords[0],coords[2])) < 0.2*(vertices[0][0]+vertices[1][0]))) or \
-                     ((slope > -0.4) and (np.min((coords[1],coords[3])) < 0.2*0.5*(vertices[0][1]+vertices[3][1])) and (np.max((coords[0],coords[2])) > 0.8*(vertices[0][0]+vertices[1][0]))):
+#                elif ((slope <  0.1) and (0.5*(xy[1]+xy[3]) < 0.3*(vertices[1][1]+vertices[2][1])) and (0.5*(xy[0]+xy[2]) < 0.4*(vertices[0][0]+vertices[1][0]))) or \
+#                     ((slope > -0.3) and (0.5*(xy[1]+xy[3]) < 0.3*(vertices[0][1]+vertices[3][1])) and (0.5*(xy[0]+xy[2]) > 0.6*(vertices[0][0]+vertices[1][0]))):
+                elif ((slope <  0.4) and (np.min((xy[1],xy[3])) < 0.2*0.5*(vertices[1][1]+vertices[2][1])) and (np.min((xy[0],xy[2])) < 0.2*(vertices[0][0]+vertices[1][0]))) or \
+                     ((slope > -0.4) and (np.min((xy[1],xy[3])) < 0.2*0.5*(vertices[0][1]+vertices[3][1])) and (np.max((xy[0],xy[2])) > 0.8*(vertices[0][0]+vertices[1][0]))):
                     # ignore lines \ starting at upper-left  part
                     # ignore lines / starting at upper-right part
                     continue
-           # elif 0.5*(coords[1]+coords[3]) < 0.5*(vertices[0][1]+vertices[3][1]):    
+           # elif 0.5*(xy[1]+xy[3]) < 0.5*(vertices[0][1]+vertices[3][1]):    
 
                     # continue
-                #elif (np.absolute(slope) < 0.1) and (np.absolute(coords[0]-coords[1]) < 0.4*np.absolute(vertices[0][0]-vertices[1][0])):
+                #elif (np.absolute(slope) < 0.1) and (np.absolute(xy[0]-xy[1]) < 0.4*np.absolute(vertices[0][0]-vertices[1][0])):
                     # ignore short horizontal lines in the horizontal middle: it can be profile of a car in front of us
                     #continue
                 elif abs(slope) < 0.001:
                     # ignore absolutely horizontal line
                     continue
                 else:
-                    lineGood.append(coords)
+                    lineGood.append(xy)
                  
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -377,6 +369,7 @@ def lineGroup(lanes):
     # 
     # do line grouping/fitting
     #
+    hOfRoi     = 310
     orderPoly  = 1     # 2  # 1
     point2Draw = 2     # 4  # 2
     try:
@@ -409,7 +402,7 @@ def lineGroup(lanes):
                 # if the 2 lines are approximately parallel
                 if parallel:
                     # then check the gap for not too big
-                    gap = gapBetweenLines(l1,l2)   #### for line terminals
+                    gap = gapLineTerminals(l1,l2)   #### for line terminals
                     # print("gap=", gap)
                     if gap < 32:   #### gap between line terminals
                         # then the distance
@@ -425,7 +418,7 @@ def lineGroup(lanes):
                             # check if l2 can be extended
                             
                         # if the 2 lines get small distance (close to each other)
-                        if dist < 48.0:
+                        if dist < 16.0:   # gap between lines
                             lineCluster = np.append(lineCluster,[l2],axis=0)
         
                             # delete j row in l2
@@ -461,22 +454,25 @@ def lineGroup(lanes):
                 x    = np.concatenate((lineCluster[:,0],lineCluster[:,2]), 0)
                 xmin = np.amin(x) 
                 xmax = np.amax(x)
-                # 
+
                 y    = np.concatenate((lineCluster[:,1],lineCluster[:,3]), 0)
                 mc   = np.polyfit(x, y, orderPoly)
 #                print("fit=",len(x),x,y)
-#                pause()
                 xNew = np.linspace(xmin, xmax, point2Draw)
 #                ymin = np.polyval(mc, xmin)
 #                ymax = np.polyval(mc, xmax)
                 yNew = np.polyval(mc, xNew)
-#                ttt  = np.array([x,y])
-#                rrr  = np.array([x,y]).flatten('F')
-#                print("x y=", x,y )
-#                print("ttt=", ttt )
-#                print("rrr=", rrr)
-#                rrr = np.uint([xNew,yNew]).flatten('F')  # F one col after another
-#                www = np.uint([xNew,yNew]).flatten('C')
+                # deal with point out of ROI
+                #print ("mc1:",mc, yNew)
+                if yNew[0] > hOfRoi: 
+                    if mc[0] != 0:
+                        yNew[0] = hOfRoi
+                        xNew[0] = (yNew[0]-mc[1])/mc[0]
+                if yNew[1] > hOfRoi:
+                    if mc[0] != 0:
+                        yNew[1] = hOfRoi
+                        xNew[1] = (yNew[1]-mc[1])/mc[0]
+               # print ("mc2:",mc, yNew)
                 # print("for lineFit: ", lineFit.shape, )
                 lineFit = np.vstack([lineFit, [np.uint([xNew,yNew]).flatten('C')]])
                 # print("lineFit: ", lineFit)
@@ -497,7 +493,88 @@ def lineGroup(lanes):
     return lineFit      #np.array(lineFit, dtype=np.int)   # np.transpose(lineGood)
 
 
+def lineVote(lines):
+    """ vote the lines according to it angle, length and center position """
+    
+    hOfRoi = 310
+    wOfRoi = 835
+    hHalf  = np.uint(hOfRoi/2)
+    wHalf  = np.uint(wOfRoi/2)
 
+    verticalAllowed   = 1.0
+    horizontalAllowed = 1.0
+    scoreDecay        = 10.0
+        
+    scores    = []   # max = 100
+    lineVoted = np.array([], dtype=np.uint16).reshape(0,4)    # 0: angle
+    # 1: length
+    # 2: center position x
+    # 3: center position y
+    
+    # scores    = np.zeros(2)
+    # 0: score
+    # 1: left(0) or right(1)
+    print("lines")
+    print(lines)
+    for xy in lines:
+    
+        x1 = xy[0]
+        x2 = xy[1]
+        y1 = xy[2]
+        y2 = xy[3]
+        dx = np.int(x2)-np.int(x1)
+        dy = np.int(y2)-np.int(y1)
+        angle   = np.arctan(dy/dx)
+        angle   = np.degrees(angle)
+        length  = np.sqrt(dx*dx + (dy*dy))
+        #print("angle:", lines.shape, angle,length,x1,x2,centerx,y1,y2,centery)
+        centerx = 0.5*(x1+x2)  
+        centery = 0.5*(y1+y2)  
+
+        # angle 
+        if (-90+verticalAllowed <= angle) and (angle <= -90+verticalAllowed+scoreDecay):
+            scoreAngle = (angle+90-verticalAllowed) / scoreDecay
+        elif (-90+verticalAllowed+scoreDecay < angle) and (angle < -horizontalAllowed-scoreDecay):
+            scoreAngle = 1.0
+        elif (-horizontalAllowed-scoreDecay <= angle) and (angle <= -horizontalAllowed):
+            scoreAngle = -(angle+horizontalAllowed) / scoreDecay
+        elif (horizontalAllowed <= angle) and (angle <= horizontalAllowed+scoreDecay):
+            scoreAngle = (angle-horizontalAllowed) / scoreDecay
+        elif (horizontalAllowed+scoreDecay<=angle) and (angle<=90-verticalAllowed-scoreDecay):
+            scoreAngle = 1.0
+        elif (horizontalAllowed+scoreDecay<=angle) and (angle<=90-verticalAllowed-scoreDecay):
+            scoreAngle = (angle-verticalAllowed) / scoreDecay
+        else:
+            scoreAngle = 0.0
+        # length    
+        if length < 0.3*wHalf:
+            scoreLength = length*1/(0.3*wHalf)
+        else:
+            scoreLength = 1
+        # position
+        if centery < hHalf:
+            scorePosition = centery*1/hHalf
+        else:
+            scorePosition = 1
+ 
+        print("angle length position:",angle, length, centery)
+        #pause()
+
+        centerx = centerx / wOfRoi 
+        centery = centery / hOfRoi
+        score   = 100*scoreAngle*scoreLength*scorePosition
+        scores.append([score,100*centerx,100*centery])
+        if score > 40.0:
+            lineVoted = np.vstack([lineVoted, [xy]])
+      
+    scores = np.array(scores)
+    print("score:")
+    print(scores)
+    print("lineVoted:")
+    print(lineVoted)
+    
+    return lineVoted, scores
+    
 def distPoint2Line(point, line):
     """ get the distance between a point to a line """    
     dist = 1e4
@@ -552,7 +629,7 @@ def distBetweenParaLines(l1, l2):
 
 
 
-def gapBetweenLines(l1,l2):
+def gapLineTerminals(l1,l2):
     """ get the gap between the terminals of 2 lines"""
     #np.seterr(over='ignore')
     
@@ -635,7 +712,7 @@ def isParallel(l1,l2):
         else:
             slope2 = np.divide((y23-y21), dx2)
             
-        parallel = (np.abs(slope2-slope1) < 0.1)   #### criterion for parallelization
+        parallel = (np.abs(slope2-slope1) < 0.15)   #### criterion for parallelization
 
     return parallel
 
@@ -674,14 +751,14 @@ def plot (imageOriginal, lineFit, lineGood, roiVertice, verticeI):
     #print('lineBetter=', lineBetter)  
     # draw all the lines found
     try:
-        for coords in lineGood:
-            if False:
+        if True:  # plot more lines
+            for xy in lineGood:
                 try:
-                    #coords = transform(coords, 0.5)
+                    #xy = transform(xy, 0.5)
                     # plot all lines
-                    cv2.line(imageOriginal, (coords[0], coords[1]), (coords[2], coords[3]), [255,105,180], 3)
+                    cv2.line(imageOriginal, (xy[0], xy[1]), (xy[2], xy[3]), [255,105,180], 3)
                     # transpose
-                    # cv2.line(imageOriginal, (coords[1], coords[0]), (coords[3], coords[2]), [255,0,0], 2)
+                    # cv2.line(imageOriginal, (xy[1], xy[0]), (xy[3], xy[2]), [255,0,0], 2)
                 except Exception as e:
                     exc_type, exc_obj, exc_tb = sys.exc_info()
                     fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
@@ -690,24 +767,24 @@ def plot (imageOriginal, lineFit, lineGood, roiVertice, verticeI):
 #        rrr =        [lineBetter.reshape(4,2)]
 #        cv2.polylines(imageOriginal, rrr, False, [0,0,255], 1)
 
-        for coords in lineFit:
-            #print('line coords: ', coords[0], coords[1]), (coords[2], coords[3])
+        for xy in lineFit:
+            #print('line xy: ', xy[0], xy[1]), (xy[2], xy[3])
             try:
-                #coords = transform(coords, 0.5)
+                #xy = transform(xy, 0.5)
                 
-                numOfCol  = len(coords)
+                numOfCol  = len(xy)
                 posOfHalf = np.uint(numOfCol/2)
-                x         = coords[0:posOfHalf]
-                y         = coords[posOfHalf:numOfCol]
+                x         = xy[0:posOfHalf]
+                y         = xy[posOfHalf:numOfCol]
                 x = x.astype(int)
                 y = y.astype(int)
                 arrayTmp  = np.array([x,y]).transpose()
                 # arrayTmp  = np.uint16(arrayTmp)
                 cv2.polylines(imageOriginal, [arrayTmp], False, [255,0,0], 2, 4)
 
-                # cv2.line(imageOriginal, (coords[0], coords[1]), (coords[2], coords[3]), [255,0,0], 2)
+                # cv2.line(imageOriginal, (xy[0], xy[1]), (xy[2], xy[3]), [255,0,0], 2)
                 # transpose
-                # cv2.line(imageOriginal, (coords[1], coords[0]), (coords[3], coords[2]), [255,0,0], 2)
+                # cv2.line(imageOriginal, (xy[1], xy[0]), (xy[3], xy[2]), [255,0,0], 2)
             except Exception as e:
                                 
                 exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -721,14 +798,14 @@ def plot (imageOriginal, lineFit, lineGood, roiVertice, verticeI):
 
     # return m1, m2
     
-def transform(coords, scale):
+def transform(xy, scale):
     # x1, y1
-    coords[0] = coords[0]*scale
-    coords[1] = coords[1]*scale
+    xy[0] = xy[0]*scale
+    xy[1] = xy[1]*scale
     # x2,y2
-    coords[2] = coords[2]*scale
-    coords[3] = coords[3]*scale
-    return coords
+    xy[2] = xy[2]*scale
+    xy[3] = xy[3]*scale
+    return xy
 
 #
 #    get line by intensity of a horizontal line
